@@ -7,11 +7,22 @@ package main.groovy
 
 import groovyx.net.http.HTTPBuilder
 import groovyx.net.http.HttpResponseDecorator
+
+import javax.swing.JFrame
+import javax.swing.JOptionPane
+
 import static groovyx.net.http.ContentType.*
 
+def prompt = {
+    JFrame jframe = new JFrame()
+    String answer = JOptionPane.showInputDialog(jframe, it)
+    jframe.dispose()
+    answer
+}
 
-def http = new HTTPBuilder('http://www.google.com')
+def strUrl = prompt("Enter an URL to retrieve:")
 
+def http = new HTTPBuilder(strUrl)
 http.get( path : '/search',
         contentType : TEXT,
         query : [q:'httpbuilder'] ) { HttpResponseDecorator resp, InputStreamReader reader ->

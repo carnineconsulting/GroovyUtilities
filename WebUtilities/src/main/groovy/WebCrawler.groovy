@@ -1,5 +1,3 @@
-
-
 @Grapes([
 // Hazelcast dependency, distributed cache (map file persistence to be used for stateful crawler)
         @Grab(group = 'com.hazelcast', module = 'hazelcast', version = '2.3.1'),
@@ -9,54 +7,60 @@
 
 package main.groovy
 
-import com.hazelcast.core.Hazelcast
 import org.cyberneko.html.parsers.SAXParser
-
+import javax.swing.JFrame
+import javax.swing.JOptionPane
 import static com.hazelcast.core.Hazelcast.*
 
 // initialize link map, key is URL, value is true if visited, false otherwise
 Map<String, Boolean> linkMap = getMap("links");
-linkMap.put("http://www.firehousesoftware.com", false)
+def prompt = {
+    JFrame jframe = new JFrame()
+    String answer = JOptionPane.showInputDialog(jframe, it)
+    jframe.dispose()
+    answer
+}
+
+def strUrl = prompt("Enter an URL to retrieve:")
+linkMap.put(strUrl, false)
 
 // initialize Neko HTML parser and disable namespace processing
 def parser = new SAXParser()
 parser.setFeature('http://xml.org/sax/features/namespaces', false)
 
 // crawl while we still have unvisited URLs
-while ((e = linkMap.find {it.getValue() == false}) != null) {
+while (null != (e = linkMap.find { (!it.value) })) {
     // get URL address from map value
     def url = e.getKey()
-    def host = (url =~ /(http:\/\/[^\/]+)\/?.*/)[0][1]
-
-    if (host == "http://www.firehousesoftware.com"){
+    def host = (url =~ /(\w*:\/\/[^\/]+)\/?.*/)[0][1]
 
     // crawl URL and set visited to true
     println "Crawling ${url} on host: ${host}"
-        e.setValue(true)
-
+    e.setValue(true)
     crawlToDisk(url)
 
-    // extract links from current URL
 
-    def base = url[0..url.lastIndexOf('/')]
-    def page = new XmlParser(parser).parse(url)
-    def links = page.depthFirst().A.grep { it.@href }.'@href'
 
-    //  fix and put all new links to map, visited set to false
-    links.each {
-        def newURL = processURL(host, base, it)
-        try {
-            if (!linkMap.containsKey(newURL)) {
-                linkMap.put(newURL, false)
+    try {
+        // extract links from current URL
+        def base = url[0..url.lastIndexOf('/')]
+        def page = new XmlParser(parser).parse(url)
+        def links = page.depthFirst().A.grep { it.@href }.'@href'
+        //  fix and put all new links to map, visited set to false
+        links.each {
+            def newURL = processURL(host, base, it)
+            try {
+                if (!linkMap.containsKey(newURL)) {
+                    linkMap.put(newURL, false)
+                }
+            } catch (Throwable ex) {
+
             }
-        } catch (Throwable ex) {
-
         }
+    } catch (Throwable ex) {
+        println(ex.getMessage())
     }
 }
-    }
-
-
 
 // fixes relative links and discards unwanted protocols
 def processURL(host, base, url) {
@@ -100,7 +104,11 @@ def crawlToDisk(websiteAddress) {
     new File(dir).mkdirs()
 
     // crawl website to file on disk
-    def out = new BufferedOutputStream(new FileOutputStream(dir + '/' + file))
-    out << new URL(websiteAddress).openStream()
-    out.close()
+    try {
+        def out = new BufferedOutputStream(new FileOutputStream(dir + '/' + file))
+        out << new URL(websiteAddress).openStream()
+        out.close()
+    } catch (Throwable ex) {
+        println(ex.getMessage())
+    }
 }
